@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Whisper · 端到端加密聊天</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0d12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Whisper">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0d12;
+    --surface: #11151c;
+    --surface-2: #161b24;
+    --border: #1f2530;
+    --border-strong: #2a3140;
+    --text: #e8eef5;
+    --muted: #6f7888;
+    --accent: #ff6b35;
+    --accent-dim: rgba(255, 107, 53, 0.12);
+    --danger: #f87171;
+    --bubble-me: linear-gradient(135deg, #2dd4bf 0%, #14b8a6 100%);
+    --bubble-you: #1c2230;
+    --shadow: 0 8px 24px rgba(0,0,0,0.4);
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(at 20% 0%, rgba(45, 212, 191, 0.06) 0px, transparent 50%),
+      radial-gradient(at 80% 100%, rgba(45, 212, 191, 0.04) 0px, transparent 50%);
+  }
+
+  button { font-family: inherit; cursor: pointer; border: none; }
+  input, textarea { font-family: inherit; }
+
+  /* ============ 加载/认证页 ============ */
+  .auth-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .auth-card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px 32px;
+    box-shadow: var(--shadow);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .logo-mark {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--bubble-me);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; color: #052e2a; font-size: 18px;
+  }
+  .logo-name {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
+  }
+
+  .auth-card h1 {
+    font-size: 24px; font-weight: 700; margin: 24px 0 6px;
+    letter-spacing: -0.02em;
+  }
+  .auth-card .subtitle {
+    color: var(--muted); font-size: 14px; margin-bottom: 24px;
+  }
+
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block; font-size: 12px; color: var(--muted);
+    margin-bottom: 6px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .field input {
+    width: 100%; padding: 12px 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text); font-size: 15px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .field input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--bg);
+  }
+
+  .btn {
+    width: 100%; padding: 13px;
+    background: var(--bubble-me);
+    color: #052e2a;
+    font-weight: 700; font-size: 15px;
+    border-radius: 10px;
+    transition: transform 0.1s, opacity 0.15s;
+  }
+  .btn:hover:not(:disabled) { opacity: 0.92; }
+  .btn:active:not(:disabled) { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    font-weight: 500; font-size: 14px;
+    padding: 8px;
+    width: auto;
+    margin-top: 16px;
+  }
+  .btn-ghost:hover { color: var(--text); }
+
+  .auth-toggle {
+    text-align: center;
+    margin-top: 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .auth-toggle a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .alert {
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+  .alert-error {
+    background: rgba(248, 113, 113, 0.1);
+    color: var(--danger);
+    border: 1px solid rgba(248, 113, 113, 0.25);
+  }
+  .alert-info {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid rgba(45, 212, 191, 0.25);
+  }
+
+  .warn-box {
+    margin-top: 16px;
+    padding: 12px;
+    background: rgba(255, 184, 0, 0.06);
+    border: 1px solid rgba(255, 184, 0, 0.18);
+    border-radius: 8px;
+    font-size: 12px;
+    color: #fbbf24;
+    line-height: 1.5;
+  }
+
+  /* ============ 主应用 ============ */
+  .app {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    height: 100vh;
+  }
+
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 18px 18px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-top {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .me-info {
+    display: flex; align-items: center; gap: 10px;
+    flex: 1; min-width: 0;
+  }
+  .avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--bubble-me);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: #052e2a; font-size: 14px;
+    flex-shrink: 0;
+  }
+  .me-name {
+    font-weight: 600; font-size: 15px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .me-status {
+    font-size: 11px; color: var(--accent);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .me-status::before {
+    content: ""; width: 6px; height: 6px;
+    border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .icon-btn {
+    background: transparent;
+    color: var(--muted);
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+  .icon-btn:hover { background: var(--surface-2); color: var(--text); }
+
+  .search-box {
+    position: relative;
+  }
+  .search-box input {
+    width: 100%;
+    padding: 10px 14px 10px 36px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text); font-size: 14px;
+  }
+  .search-box input:focus {
+    outline: none; border-color: var(--accent);
+  }
+  .search-box::before {
+    content: "🔍";
+    position: absolute; left: 12px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 13px; opacity: 0.5;
+  }
+
+  .convo-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  .convo-list::-webkit-scrollbar { width: 6px; }
+  .convo-list::-webkit-scrollbar-track { background: transparent; }
+  .convo-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+  .convo-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-bottom: 2px;
+  }
+  .convo-item:hover { background: var(--surface-2); }
+  .convo-item.active { background: var(--surface-2); }
+  .convo-item .avatar { width: 40px; height: 40px; font-size: 15px; }
+  .convo-meta { flex: 1; min-width: 0; }
+  .convo-name {
+    font-weight: 600; font-size: 14px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .convo-last {
+    font-size: 12px; color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    margin-top: 2px;
+  }
+
+  .empty-state {
+    text-align: center;
+    color: var(--muted);
+    padding: 40px 20px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* ---- 聊天区 ---- */
+  .chat {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--bg);
+  }
+
+  .chat-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+  }
+  .chat-header .avatar { width: 38px; height: 38px; }
+  .chat-title {
+    flex: 1;
+  }
+  .chat-name { font-weight: 600; font-size: 15px; }
+  .chat-status {
+    font-size: 12px; color: var(--accent);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .chat-status .lock-icon { font-size: 10px; }
+
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .messages::-webkit-scrollbar { width: 6px; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+  .msg {
+    max-width: 70%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    word-wrap: break-word;
+    font-size: 14.5px;
+    line-height: 1.45;
+    animation: msgIn 0.25s ease-out;
+  }
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .msg.me {
+    align-self: flex-end;
+    background: var(--bubble-me);
+    color: #052e2a;
+    border-bottom-right-radius: 4px;
+  }
+  .msg.you {
+    align-self: flex-start;
+    background: var(--bubble-you);
+    color: var(--text);
+    border-bottom-left-radius: 4px;
+  }
+  .msg-time {
+    font-size: 10.5px;
+    opacity: 0.6;
+    margin-top: 3px;
+    display: block;
+  }
+  .msg.me .msg-time { color: rgba(5, 46, 42, 0.7); }
+
+  .composer {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+  .composer textarea {
+    flex: 1;
+    min-height: 42px;
+    max-height: 120px;
+    padding: 10px 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 14.5px;
+    resize: none;
+    line-height: 1.4;
+  }
+  .composer textarea:focus {
+    outline: none; border-color: var(--accent);
+  }
+  .send-btn {
+    background: var(--bubble-me);
+    color: #052e2a;
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    font-size: 18px;
+    flex-shrink: 0;
+    transition: transform 0.1s;
+  }
+  .send-btn:active { transform: scale(0.92); }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .empty-chat {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: var(--muted);
+    text-align: center; padding: 40px;
+  }
+  .empty-chat-icon {
+    font-size: 48px; margin-bottom: 16px; opacity: 0.4;
+  }
+  .empty-chat-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+  .empty-chat-sub { font-size: 13px; line-height: 1.6; max-width: 280px; }
+
+  /* 搜索结果浮层 */
+  .search-results {
+    position: absolute;
+    top: 100%;
+    left: 0; right: 0;
+    margin-top: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    z-index: 10;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .search-result-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .search-result-item:hover { background: var(--surface); }
+  .search-result-item .avatar { width: 32px; height: 32px; font-size: 13px; }
+
+  .hidden { display: none !important; }
+
+  /* 移动端 */
+  @media (max-width: 720px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { display: flex; }
+    .chat { display: none; }
+    .app.show-chat .sidebar { display: none; }
+    .app.show-chat .chat { display: flex; }
+    .back-btn { display: flex !important; }
+  }
+  .back-btn { display: none; }
+
+  /* 刘海屏 / 安全区适配（PWA 全屏模式） */
+  .sidebar-header { padding-top: calc(18px + env(safe-area-inset-top)); }
+  .chat-header { padding-top: calc(14px + env(safe-area-inset-top)); }
+  .composer { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+  .auth-wrap {
+    padding-top: calc(24px + env(safe-area-inset-top));
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+
+  /* 加载 spinner */
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(5, 46, 42, 0.3);
+    border-top-color: #052e2a;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .footer-note {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.02em;
+  }
+  .footer-note .lock { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ============ 配置提醒（如果未配置 Firebase） ============ -->
+<div id="config-warning" class="auth-wrap hidden">
+  <div class="auth-card">
+    <div class="logo">
+      <div class="logo-mark">W</div>
+      <div class="logo-name">Whisper 🔥 v2</div>
+    </div>
+    <h1>需要配置 Supabase</h1>
+    <p class="subtitle">这个应用需要一个 Supabase 项目作为后端。打开 index.html 文件，把顶部的 SUPABASE_URL 和 SUPABASE_ANON_KEY 换成你的项目数据。</p>
+    <div class="alert alert-info">详细步骤请看 README.md</div>
+  </div>
+</div>
+
+<!-- ============ 登录/注册页 ============ -->
+<div id="auth-screen" class="auth-wrap hidden">
+  <div class="auth-card">
+    <div class="logo">
+      <div class="logo-mark">W</div>
+      <div class="logo-name">Whisper 🔥 v2</div>
+    </div>
+
+    <!-- 登录 -->
+    <div id="login-form">
+      <h1>欢迎回来</h1>
+      <p class="subtitle">输入你的账号继续</p>
+      <div id="login-alert"></div>
+      <div class="field">
+        <label>邮箱</label>
+        <input type="email" id="login-email" autocomplete="email">
+      </div>
+      <div class="field">
+        <label>密码</label>
+        <input type="password" id="login-password" autocomplete="current-password">
+      </div>
+      <button class="btn" id="login-btn">登录</button>
+      <div class="auth-toggle">还没有账号？<a onclick="showRegister()">立即注册</a></div>
+    </div>
+
+    <!-- 注册 -->
+    <div id="register-form" class="hidden">
+      <h1>创建账号</h1>
+      <p class="subtitle">所有消息都会用你的密码加密</p>
+      <div id="register-alert"></div>
+      <div class="field">
+        <label>用户名（3-20 字符）</label>
+        <input type="text" id="register-username" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>邮箱</label>
+        <input type="email" id="register-email" autocomplete="email">
+      </div>
+      <div class="field">
+        <label>密码（至少 8 位）</label>
+        <input type="password" id="register-password" autocomplete="new-password">
+      </div>
+      <button class="btn" id="register-btn">注册</button>
+      <div class="warn-box">
+        ⚠️ <strong>重要：</strong>你的密码同时是加密密钥的种子。如果忘记，所有历史消息将永久无法解密 —— 我们和服务器都救不回来。
+      </div>
+      <div class="auth-toggle">已有账号？<a onclick="showLogin()">返回登录</a></div>
+    </div>
+
+    <div class="footer-note"><span class="lock">🔒</span> 端到端加密 · 服务器看不到你的消息</div>
+  </div>
+</div>
+
+<!-- ============ 解锁密钥页（登录后但未解锁时） ============ -->
+<div id="unlock-screen" class="auth-wrap hidden">
+  <div class="auth-card">
+    <div class="logo">
+      <div class="logo-mark">W</div>
+      <div class="logo-name">Whisper 🔥 v2</div>
+    </div>
+    <h1>解锁你的密钥</h1>
+    <p class="subtitle">需要你的密码来解密本地存储的私钥</p>
+    <div id="unlock-alert"></div>
+    <div class="field">
+      <label>密码</label>
+      <input type="password" id="unlock-password" autocomplete="current-password">
+    </div>
+    <button class="btn" id="unlock-btn">解锁</button>
+    <button class="btn-ghost" onclick="signOut()">使用其他账号</button>
+  </div>
+</div>
+
+<!-- ============ 主应用 ============ -->
+<div id="app" class="app hidden">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-top">
+        <div class="me-info">
+          <div class="avatar" id="me-avatar">?</div>
+          <div style="min-width:0">
+            <div class="me-name" id="me-name">载入中...</div>
+            <div class="me-status">已连接</div>
+          </div>
+        </div>
+        <button class="icon-btn" onclick="signOut()" title="登出">⏻</button>
+      </div>
+      <div class="search-box" style="position:relative">
+        <input type="text" id="user-search" placeholder="搜索用户名开始聊天...">
+        <div id="search-results" class="search-results hidden"></div>
+      </div>
+    </div>
+    <div class="convo-list" id="convo-list">
+      <div class="empty-state">
+        还没有对话<br>
+        在上方搜索用户名找到朋友
+      </div>
+    </div>
+  </aside>
+
+  <main class="chat" id="chat-area">
+    <div class="empty-chat" id="empty-chat">
+      <div class="empty-chat-icon">💬</div>
+      <div class="empty-chat-title">选择一个对话</div>
+      <div class="empty-chat-sub">所有消息都端到端加密。即使是服务器管理员也读不到你的内容。</div>
+    </div>
+
+    <div id="active-chat" class="hidden" style="display:flex;flex-direction:column;height:100%;">
+      <div class="chat-header">
+        <button class="icon-btn back-btn" onclick="closeChat()">←</button>
+        <div class="avatar" id="peer-avatar">?</div>
+        <div class="chat-title">
+          <div class="chat-name" id="peer-name">用户</div>
+          <div class="chat-status"><span class="lock-icon">🔒</span> 端到端加密</div>
+        </div>
+      </div>
+      <div class="messages" id="messages"></div>
+      <div class="composer">
+        <textarea id="message-input" placeholder="输入消息..." rows="1"></textarea>
+        <button class="send-btn" id="send-btn" title="发送">↑</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ============ Supabase JS ============ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ===========================================================
+//  ⚙️ 配置 - 把下面两行换成你 Supabase 项目的数据
+//  在 Supabase Dashboard → Settings → API 里找
+// ===========================================================
+const SUPABASE_URL = 'https://stwzerqynupkhfwatprj.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0d3plcnF5bnVwa2hmd2F0cHJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5MDAwMDQsImV4cCI6MjA5MzQ3NjAwNH0.bucavskAWDDZspsZlTet3gy_MIJVgxVvMUU00gKAPlc';
+// ===========================================================
+
+let supabase = null;
+let currentUser = null;
+let currentProfile = null;
+let myPrivateKey = null;
+let activePeer = null;
+let realtimeChannel = null;
+let conversations = new Map();
+let peerCache = new Map();
+
+const $ = id => document.getElementById(id);
+const buf2b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const b642buf = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+const initials = name => (name || '?').slice(0, 2).toUpperCase();
+
+function showAlert(elId, msg, type='error') {
+  const cls = type === 'error' ? 'alert-error' : 'alert-info';
+  $(elId).innerHTML = `<div class="alert ${cls}">${msg}</div>`;
+}
+function clearAlert(elId) { $(elId).innerHTML = ''; }
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+// ============== 加密 ==============
+async function deriveWrappingKey(password, salt) {
+  const baseKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 250000, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false, ['encrypt', 'decrypt']
+  );
+}
+async function generateKeyPair() {
+  return crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits']);
+}
+async function packPrivateKey(privateKey, password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const wrappingKey = await deriveWrappingKey(password, salt);
+  const pkcs8 = await crypto.subtle.exportKey('pkcs8', privateKey);
+  const enc = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, wrappingKey, pkcs8);
+  return { encrypted_private_key: buf2b64(enc), pk_salt: buf2b64(salt), pk_iv: buf2b64(iv) };
+}
+async function unpackPrivateKey(profile, password) {
+  const salt = b642buf(profile.pk_salt);
+  const iv = b642buf(profile.pk_iv);
+  const enc = b642buf(profile.encrypted_private_key);
+  const wrappingKey = await deriveWrappingKey(password, salt);
+  const pkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, wrappingKey, enc);
+  return crypto.subtle.importKey('pkcs8', pkcs8, { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveKey', 'deriveBits']);
+}
+async function importPublicKey(b64) {
+  return crypto.subtle.importKey('raw', b642buf(b64), { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+}
+async function deriveSharedKey(theirPublicKeyB64) {
+  const theirPub = await importPublicKey(theirPublicKeyB64);
+  return crypto.subtle.deriveKey(
+    { name: 'ECDH', public: theirPub },
+    myPrivateKey,
+    { name: 'AES-GCM', length: 256 },
+    false, ['encrypt', 'decrypt']
+  );
+}
+async function encryptMessage(plaintext, sharedKey) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, sharedKey, new TextEncoder().encode(plaintext));
+  return { ciphertext: buf2b64(enc), iv: buf2b64(iv) };
+}
+async function decryptMessage(ciphertextB64, ivB64, sharedKey) {
+  try {
+    const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b642buf(ivB64) }, sharedKey, b642buf(ciphertextB64));
+    return new TextDecoder().decode(dec);
+  } catch (e) { return '🔒 [无法解密]'; }
+}
+
+// ============== 注册/登录 ==============
+function showLogin() {
+  $('login-form').classList.remove('hidden');
+  $('register-form').classList.add('hidden');
+  clearAlert('login-alert');
+  clearAlert('register-alert');
+}
+function showRegister() {
+  $('login-form').classList.add('hidden');
+  $('register-form').classList.remove('hidden');
+  clearAlert('login-alert');
+  clearAlert('register-alert');
+}
+
+async function createProfile(userId, username, password) {
+  const keyPair = await generateKeyPair();
+  const publicKeyRaw = await crypto.subtle.exportKey('raw', keyPair.publicKey);
+  const packed = await packPrivateKey(keyPair.privateKey, password);
+  const { error } = await supabase.from('profiles').insert({
+    id: userId,
+    username,
+    public_key: buf2b64(publicKeyRaw),
+    ...packed
+  });
+  if (error) throw error;
+}
+
+async function handleRegister() {
+  clearAlert('register-alert');
+  const username = $('register-username').value.trim();
+  const email = $('register-email').value.trim();
+  const password = $('register-password').value;
+
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) return showAlert('register-alert', '用户名 3-20 位，只能用字母、数字、下划线');
+  if (!email.includes('@')) return showAlert('register-alert', '请输入有效邮箱');
+  if (password.length < 8) return showAlert('register-alert', '密码至少 8 位');
+
+  const btn = $('register-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    // 检查用户名
+    const { data: existing } = await supabase.from('profiles').select('id').eq('username', username).maybeSingle();
+    if (existing) throw new Error('这个用户名已被使用');
+
+    // 注册账号
+    const { data: authData, error: authErr } = await supabase.auth.signUp({ email, password });
+    if (authErr) throw authErr;
+    if (!authData.user) throw new Error('注册失败');
+
+    // 如果开了邮箱验证，没 session，等用户验证完邮箱再登录
+    if (!authData.session) {
+      sessionStorage.setItem('pending_profile_username', username);
+      showAlert('register-alert',
+        '✉️ 已发送验证邮件到 <strong>' + escapeHtml(email) + '</strong><br>请打开邮件确认后回来登录',
+        'info');
+      btn.disabled = false;
+      btn.textContent = '注册';
+      return;
+    }
+
+    // 创建 profile
+    await createProfile(authData.user.id, username, password);
+    sessionStorage.setItem('_pw', password);
+    location.reload();
+  } catch (e) {
+    showAlert('register-alert', e.message || '注册失败');
+    btn.disabled = false;
+    btn.textContent = '注册';
+  }
+}
+
+async function handleLogin() {
+  clearAlert('login-alert');
+  const email = $('login-email').value.trim();
+  const password = $('login-password').value;
+  if (!email || !password) return showAlert('login-alert', '请填写邮箱和密码');
+
+  const btn = $('login-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+
+    // 检查 profile 是否存在
+    const { data: profile } = await supabase.from('profiles').select('id').eq('id', data.user.id).maybeSingle();
+    if (!profile) {
+      // 邮箱验证后第一次登录，创建 profile
+      const username = sessionStorage.getItem('pending_profile_username');
+      if (!username) throw new Error('找不到用户名信息，请重新注册');
+      await createProfile(data.user.id, username, password);
+      sessionStorage.removeItem('pending_profile_username');
+    }
+
+    sessionStorage.setItem('_pw', password);
+    location.reload();
+  } catch (e) {
+    showAlert('login-alert', e.message || '登录失败');
+    btn.disabled = false;
+    btn.textContent = '登录';
+  }
+}
+
+async function handleUnlock() {
+  clearAlert('unlock-alert');
+  const password = $('unlock-password').value;
+  if (!password) return;
+
+  const btn = $('unlock-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    myPrivateKey = await unpackPrivateKey(currentProfile, password);
+    sessionStorage.setItem('_pw', password);
+    enterApp();
+  } catch (e) {
+    showAlert('unlock-alert', '密码错误，无法解开密钥');
+    btn.disabled = false;
+    btn.textContent = '解锁';
+  }
+}
+
+async function signOut() {
+  sessionStorage.clear();
+  if (realtimeChannel) await supabase.removeChannel(realtimeChannel);
+  await supabase.auth.signOut();
+  location.reload();
+}
+
+// ============== 主应用 ==============
+async function enterApp() {
+  $('auth-screen').classList.add('hidden');
+  $('unlock-screen').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  $('me-name').textContent = currentProfile.username;
+  $('me-avatar').textContent = initials(currentProfile.username);
+  await loadConversations();
+  subscribeRealtime();
+}
+
+async function loadConversations() {
+  const { data: msgs } = await supabase
+    .from('messages')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(500);
+
+  if (!msgs || msgs.length === 0) {
+    renderConvoList();
+    return;
+  }
+
+  const peerIds = new Set();
+  msgs.forEach(m => {
+    const pid = m.sender_id === currentUser.id ? m.recipient_id : m.sender_id;
+    peerIds.add(pid);
+  });
+
+  const { data: profiles } = await supabase.from('profiles').select('*').in('id', Array.from(peerIds));
+  if (profiles) profiles.forEach(p => peerCache.set(p.id, p));
+
+  const latestByPeer = new Map();
+  for (const m of msgs) {
+    const pid = m.sender_id === currentUser.id ? m.recipient_id : m.sender_id;
+    if (!latestByPeer.has(pid)) latestByPeer.set(pid, m);
+  }
+
+  for (const [pid, msg] of latestByPeer) {
+    const profile = peerCache.get(pid);
+    if (!profile) continue;
+    const sharedKey = await deriveSharedKey(profile.public_key);
+    const preview = await decryptMessage(msg.ciphertext, msg.iv, sharedKey);
+    conversations.set(pid, {
+      profile,
+      lastMsg: { text: preview, time: msg.created_at, fromMe: msg.sender_id === currentUser.id },
+      sharedKey
+    });
+  }
+  renderConvoList();
+}
+
+function renderConvoList() {
+  const list = $('convo-list');
+  if (conversations.size === 0) {
+    list.innerHTML = `<div class="empty-state">还没有对话<br>在上方搜索用户名找到朋友</div>`;
+    return;
+  }
+  const items = Array.from(conversations.values()).sort((a, b) => new Date(b.lastMsg.time) - new Date(a.lastMsg.time));
+  list.innerHTML = items.map(c => `
+    <div class="convo-item ${activePeer && activePeer.id === c.profile.id ? 'active' : ''}" data-peer="${c.profile.id}">
+      <div class="avatar">${initials(c.profile.username)}</div>
+      <div class="convo-meta">
+        <div class="convo-name">${escapeHtml(c.profile.username)}</div>
+        <div class="convo-last">${c.lastMsg.fromMe ? '你: ' : ''}${escapeHtml(c.lastMsg.text)}</div>
+      </div>
+    </div>`).join('');
+  list.querySelectorAll('.convo-item').forEach(el => {
+    el.addEventListener('click', () => openChat(el.dataset.peer));
+  });
+}
+
+async function openChat(peerId) {
+  const profile = peerCache.get(peerId);
+  if (!profile) return;
+  activePeer = profile;
+
+  $('empty-chat').classList.add('hidden');
+  $('active-chat').classList.remove('hidden');
+  $('peer-name').textContent = profile.username;
+  $('peer-avatar').textContent = initials(profile.username);
+  $('app').classList.add('show-chat');
+
+  const { data: msgs } = await supabase
+    .from('messages')
+    .select('*')
+    .or(`and(sender_id.eq.${currentUser.id},recipient_id.eq.${peerId}),and(sender_id.eq.${peerId},recipient_id.eq.${currentUser.id})`)
+    .order('created_at', { ascending: true })
+    .limit(500);
+
+  const sharedKey = await deriveSharedKey(profile.public_key);
+  if (!conversations.has(peerId)) {
+    conversations.set(peerId, { profile, lastMsg: null, sharedKey });
+  } else {
+    conversations.get(peerId).sharedKey = sharedKey;
+  }
+
+  const messagesEl = $('messages');
+  messagesEl.innerHTML = '';
+  for (const m of (msgs || [])) {
+    const text = await decryptMessage(m.ciphertext, m.iv, sharedKey);
+    appendMessage(text, m.sender_id === currentUser.id, m.created_at);
+  }
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  renderConvoList();
+}
+
+function closeChat() {
+  $('app').classList.remove('show-chat');
+  activePeer = null;
+  $('active-chat').classList.add('hidden');
+  $('empty-chat').classList.remove('hidden');
+  renderConvoList();
+}
+
+function appendMessage(text, fromMe, timestamp) {
+  const el = document.createElement('div');
+  el.className = 'msg ' + (fromMe ? 'me' : 'you');
+  const time = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  el.innerHTML = `${escapeHtml(text)}<span class="msg-time">${time}</span>`;
+  $('messages').appendChild(el);
+}
+
+async function sendMessage() {
+  const text = $('message-input').value.trim();
+  if (!text || !activePeer) return;
+  const sharedKey = conversations.get(activePeer.id)?.sharedKey;
+  if (!sharedKey) return;
+
+  $('message-input').value = '';
+  $('message-input').style.height = 'auto';
+
+  const { ciphertext, iv } = await encryptMessage(text, sharedKey);
+  const { data, error } = await supabase.from('messages').insert({
+    sender_id: currentUser.id,
+    recipient_id: activePeer.id,
+    ciphertext, iv
+  }).select().single();
+
+  if (error) {
+    alert('发送失败: ' + error.message);
+    return;
+  }
+
+  appendMessage(text, true, data.created_at);
+  $('messages').scrollTop = $('messages').scrollHeight;
+
+  const c = conversations.get(activePeer.id);
+  if (c) c.lastMsg = { text, time: data.created_at, fromMe: true };
+  renderConvoList();
+}
+
+let searchTimer = null;
+async function handleSearch(query) {
+  clearTimeout(searchTimer);
+  if (!query || query.length < 2) {
+    $('search-results').classList.add('hidden');
+    return;
+  }
+  searchTimer = setTimeout(async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, username, public_key, encrypted_private_key, pk_salt, pk_iv')
+      .ilike('username', `%${query}%`)
+      .neq('id', currentUser.id)
+      .limit(8);
+
+    const box = $('search-results');
+    if (!data || data.length === 0) {
+      box.innerHTML = `<div class="search-result-item" style="cursor:default;color:var(--muted);font-size:13px">没找到这个用户</div>`;
+    } else {
+      box.innerHTML = data.map(p => `
+        <div class="search-result-item" data-uid="${p.id}">
+          <div class="avatar">${initials(p.username)}</div>
+          <div><div style="font-weight:600;font-size:14px">${escapeHtml(p.username)}</div></div>
+        </div>`).join('');
+      data.forEach(p => peerCache.set(p.id, p));
+      box.querySelectorAll('.search-result-item[data-uid]').forEach(el => {
+        el.addEventListener('click', () => startChatWith(el.dataset.uid));
+      });
+    }
+    box.classList.remove('hidden');
+  }, 250);
+}
+
+async function startChatWith(peerId) {
+  $('user-search').value = '';
+  $('search-results').classList.add('hidden');
+  await openChat(peerId);
+}
+
+function subscribeRealtime() {
+  realtimeChannel = supabase
+    .channel('messages-rt')
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'messages',
+      filter: `recipient_id=eq.${currentUser.id}`
+    }, async payload => {
+      const m = payload.new;
+      let senderProfile = peerCache.get(m.sender_id);
+      if (!senderProfile) {
+        const { data } = await supabase.from('profiles').select('*').eq('id', m.sender_id).single();
+        senderProfile = data;
+        peerCache.set(m.sender_id, data);
+      }
+      let sharedKey = conversations.get(m.sender_id)?.sharedKey;
+      if (!sharedKey) {
+        sharedKey = await deriveSharedKey(senderProfile.public_key);
+        conversations.set(m.sender_id, { profile: senderProfile, sharedKey });
+      }
+      const text = await decryptMessage(m.ciphertext, m.iv, sharedKey);
+      if (activePeer && activePeer.id === m.sender_id) {
+        appendMessage(text, false, m.created_at);
+        $('messages').scrollTop = $('messages').scrollHeight;
+      }
+      const c = conversations.get(m.sender_id);
+      c.lastMsg = { text, time: m.created_at, fromMe: false };
+      renderConvoList();
+    })
+    .subscribe();
+}
+
+async function init() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || !SUPABASE_URL.startsWith('http')) {
+    $('config-warning').classList.remove('hidden');
+    return;
+  }
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    $('auth-screen').classList.remove('hidden');
+    return;
+  }
+
+  currentUser = session.user;
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
+
+  if (!profile) {
+    // 邮箱验证后首次登录，需要建 profile
+    const cachedPw = sessionStorage.getItem('_pw');
+    const username = sessionStorage.getItem('pending_profile_username');
+    if (cachedPw && username) {
+      try {
+        await createProfile(currentUser.id, username, cachedPw);
+        sessionStorage.removeItem('pending_profile_username');
+        location.reload();
+        return;
+      } catch (e) { console.error(e); }
+    }
+    await signOut();
+    return;
+  }
+
+  currentProfile = profile;
+
+  const cachedPw = sessionStorage.getItem('_pw');
+  if (cachedPw) {
+    try {
+      myPrivateKey = await unpackPrivateKey(profile, cachedPw);
+      enterApp();
+      return;
+    } catch {}
+  }
+  $('unlock-screen').classList.remove('hidden');
+}
+
+// 事件
+$('login-btn').addEventListener('click', handleLogin);
+$('register-btn').addEventListener('click', handleRegister);
+$('unlock-btn').addEventListener('click', handleUnlock);
+$('send-btn').addEventListener('click', sendMessage);
+
+$('login-email').addEventListener('keydown', e => e.key === 'Enter' && handleLogin());
+$('login-password').addEventListener('keydown', e => e.key === 'Enter' && handleLogin());
+$('register-password').addEventListener('keydown', e => e.key === 'Enter' && handleRegister());
+$('unlock-password').addEventListener('keydown', e => e.key === 'Enter' && handleUnlock());
+
+$('user-search').addEventListener('input', e => handleSearch(e.target.value));
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-box')) $('search-results').classList.add('hidden');
+});
+
+$('message-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+$('message-input').addEventListener('input', e => {
+  e.target.style.height = 'auto';
+  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+});
+
+window.showLogin = showLogin;
+window.showRegister = showRegister;
+window.signOut = signOut;
+window.closeChat = closeChat;
+
+init();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW 注册失败:', err));
+  });
+}
+</script>
+</body>
+</html>
